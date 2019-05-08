@@ -1,0 +1,9 @@
+[package]
+name = "svg_kleinian"
+version = "0.1.0"
+authors = ["Will A Cadegan-Schlieper <wacs@covering.space>"]
+edition = "2018"
+
+[dependencies]
+num = "0.2"
+svg = "0.5"
