@@ -163,12 +163,22 @@ impl<T> Bag<T> {
             BI => &self.binv,
         }
     }
+
+    fn at_mut(&mut self, l: Letter) -> &mut T {
+        match l {
+            A => &mut self.a,
+            B => &mut self.b,
+            AI => &mut self.ainv,
+            BI => &mut self.binv,
+        }
+    }
 }
 
 // #[derive(Debug)]
 struct Kleinian {
     mats: Bag<Mat>,
     data: Option<Data>,
+    ends: Bag<Vec<Complex<f64>>>,
     last: Complex<f64>,
 }
 
@@ -176,9 +186,11 @@ impl Kleinian {
     fn new(a: Mat, b: Mat) -> Kleinian {
         let (ainv, binv) = (a.adj(), b.adj());
         let bag = Bag::new(a, b, ainv, binv);
+        let vecs = Bag::new(Vec::new(), Vec::new(), Vec::new(), Vec::new());
         Kleinian {
             mats: bag,
             data: None,
+            ends: vecs,
             last: Complex::new(1.0, 0.0),
         }
     }
@@ -187,13 +199,17 @@ impl Kleinian {
         self.mats.at(l)
     }
 
-    fn endfix(&self, l: Letter) -> Complex<f64> {
-        let one = Complex::new(1.0, 0.0);
-        match l {
-            A => (&self.mats.binv * &self.mats.ainv * &self.mats.b * &self.mats.a).fix(), // BAba
-            B => (&self.mats.a * &self.mats.binv * &self.mats.ainv * &self.mats.b).fix(), // aBAb
-            AI => (&self.mats.b * &self.mats.a * &self.mats.binv * &self.mats.ainv).fix(), // baBA
-            BI => (&self.mats.ainv * &self.mats.b * &self.mats.a * &self.mats.binv).fix(), // AbaB
+    fn prod(&self, word: Vec<Letter>) -> Mat {
+        word.iter().fold(Mat::id(), |acc, &l| acc * self.mat(l))
+    }
+
+    fn add_end(&mut self, word: Vec<Letter>) {
+        // be careful to add ends in the correct order!
+        if let Some(&l) = word.last() {
+            let z = self.prod(word).fix();
+            self.ends.at_mut(l).push(z);
+        } else {
+            panic!("can't add the fixed point of the identity");
         }
     }
 
@@ -219,13 +235,26 @@ fn branch(level: i64, l: Letter, t: &Mat, g: &mut Kleinian) {
     let one = Complex::new(1.0, 0.0);
 
     let t = t * &g.mat(l);
-    let z = t.mob(g.endfix(l));
-    // println!("{:?}", l);
-    // println!("{:?}", z);
+    let mut z = g.last;
+    let mut end_branch = true;
 
-    if level <= 0 || (g.last - z).norm_sqr() < EPSILON * EPSILON {
-        // println!("{:?}", z);
-        g.line(z);
+    let mut to_draw = Vec::new();
+
+    for &pt in g.ends.at(l) {
+        let w = t.mob(pt);
+        if level > 0 && (z - w).norm_sqr() > EPSILON * EPSILON {
+            
+            end_branch = false;
+            break;
+        }
+        to_draw.push(w);
+        z = w;
+    }
+
+    if end_branch {
+        for w in to_draw {
+            g.line(w);
+        }
         return;
     }
 
@@ -237,6 +266,12 @@ fn branch(level: i64, l: Letter, t: &Mat, g: &mut Kleinian) {
 fn limitset(level: i64, g: &mut Kleinian) {
     let one = Complex::new(1.0, 0.0);
     let t = Mat::id();
+    //add the end of each segment as an end
+    g.add_end(vec![BI, AI, B, A]);
+    g.add_end(vec![A, BI, AI, B]);
+    g.add_end(vec![B, A, BI, AI]);
+    g.add_end(vec![AI, B, A, BI]);
+
     g.line(one);
     branch(level - 1, A, &t, g);
     branch(level - 1, BI, &t, g);
@@ -260,6 +295,10 @@ fn main() {
 
     // let mut g = grandma(Complex::new(1.73205080757,1.0), Complex::new(2.0,0.0));
     let mut g = grandma(Complex::new(2.0, 0.0), Complex::new(2.0, 0.0));
+    g.add_end(vec![A]);
+    g.add_end(vec![B]);
+    g.add_end(vec![AI]);
+    g.add_end(vec![BI]);
     // println!("{:?}", a);
     // println!("{:?}", b);
     // println!("{:?}", &a * &b);
@@ -268,7 +307,7 @@ fn main() {
     // let v = &g.b * &g.a * &g.binv * &g.ainv;
     // println!("{:?}", v);
     // println!("{:?}", v.mob(one));
-    
+
 
 
     limitset(50, &mut g);
