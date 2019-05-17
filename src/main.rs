@@ -62,7 +62,6 @@ impl Mat {
             }
         } else {
             let disc = (d - a) * (d - a) + 4.0 * b * c;
-            println!("{:?}", disc);
             let sd = if (a + d).re > 0.0 {
                 -disc.sqrt()
             } else {
@@ -191,10 +190,10 @@ impl Kleinian {
     fn endfix(&self, l: Letter) -> Complex<f64> {
         let one = Complex::new(1.0, 0.0);
         match l {
-            A => (&self.mats.binv * &self.mats.ainv).mob(one), // BAba
-            B => self.mats.binv.mob(one), // aBAb
-            AI => one, // baBA
-            BI => self.mats.ainv.mob(one), // AbaB
+            A => (&self.mats.binv * &self.mats.ainv * &self.mats.b * &self.mats.a).fix(), // BAba
+            B => (&self.mats.a * &self.mats.binv * &self.mats.ainv * &self.mats.b).fix(), // aBAb
+            AI => (&self.mats.b * &self.mats.a * &self.mats.binv * &self.mats.ainv).fix(), // baBA
+            BI => (&self.mats.ainv * &self.mats.b * &self.mats.a * &self.mats.binv).fix(), // AbaB
         }
     }
 
